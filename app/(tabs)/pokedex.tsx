@@ -67,7 +67,7 @@ export default function PokedexScreen() {
           />) : null
         }
         onEndReached={loadPokemonList}
-        onEndReachedTheshold={0.5}
+        onEndReachedThreshold={0.5}
       />
 
         <CameraButton />
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: "Pokemon",
     color: '#ee7e7e',
     //neon text effect
     textShadowColor: '#fc2323',

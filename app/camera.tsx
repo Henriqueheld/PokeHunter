@@ -6,6 +6,8 @@ import { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as MediaLibrary from "expo-media-library";
+import * as Location from "expo-location";
+import { saveCapturedPokemon } from "@/services/storage";
 
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions()
@@ -13,7 +15,8 @@ export default function CameraScreen() {
   const [facing, setFacing] = useState<CameraType>("back");
   const [flash, setFlash] = useState<FlashMode>("off");
   const [takingPicture, setTakingPicture] = useState(false);
-  const [scaneed, setScaneed] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [mode, setModer] = useState<"photo" | "scan">("scan");
 
   function toggleCameraFacing() {
     setFacing((oldState) => oldState === "back" ? "front" : "back");
@@ -52,9 +55,26 @@ export default function CameraScreen() {
   }
 
   async function handleBarcodeScanned(result: BarcodeScanningResult) {
-    if(scaneed) return;
-    setScaneed(true);
-    Alert.alert("QR code", result.data)
+    if(scanned) return;
+    setScanned(true);
+
+    const pokemonId = Number(result.data);
+
+    if(!Number.isInteger(pokemonId) || pokemonId <= 0) {
+      Alert.alert("QR Code inválicdo", "O QR code deve conter o ID de um Pokémon.",
+        [
+          {
+            text: "Tentar novamente",
+            onPress: () => setScanned(false),
+          },
+        ],
+      );
+    }
+
+    const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    await saveCapturedPokemon(pokemonId, 
+       location.coords.latitude,
+       location.coords.longitude);
   }
 
   if (!permission) {
@@ -97,7 +117,7 @@ export default function CameraScreen() {
         barcodeScannerSettings={{
           barcodeTypes: ["qr"]
         }}
-        onBarcodeScanned={handleBarcodeScanned}
+        onBarcodeScanned={mode === "scan" && !scanned ? handleBarcodeScanned : undefined}
       />
 
       <SafeAreaView style={styles.overlay} edges={["top"]}>
@@ -122,22 +142,43 @@ export default function CameraScreen() {
           </Pressable>
         </View>
 
+        {mode === "scan" && (
+          <View style={styles.scannerArea}>
+            <View style = {styles.scannerFrame}>
+              <View style={[styles.scannerCorner, styles.scannerTopLeft]} />
+              <View style={[styles.scannerCorner, styles.scannerTopRight]} />
+              <View style={[styles.scannerCorner, styles.scannerBottomLeft]} />
+              <View style={[styles.scannerCorner, styles.scannerBottomRight]} />
+            </View>
+     
+           <Text>
+            Aponte paro o código QR para capturar o Pokémon
+           </Text>
+          </View>
+        )}
+
         <View style={styles.bottomArea}>
           <View style={styles.modeContainer}>
-            <Text style={styles.activeMode}>FOTO</Text>
+            <Pressable onPress={() => setModer("photo")}>
+              <Text style={mode === "photo" ? styles.activeMode : styles.inactiveMode}>FOTO</Text>
+            </Pressable>
+
+            <Pressable onPress={() => setModer("scan")}>
+              <Text style={mode === "scan" ? styles.activeMode : styles.inactiveMode}>SCAN</Text>
+            </Pressable>
           </View>
 
           <View style={styles.cameraControls}>
             <View style={styles.sideButton} />
 
-            <Pressable style={styles.captureButtonOuter} onPress={takePicture} disabled={takingPicture}>
+            <Pressable style={styles.captureButtonOuter} onPress={takePicture} disabled={takingPicture || mode === "scan"}>
               <View style={[
-                styles.captureButtonInner,
+                mode === "photo" ? styles.captureButtonInner : styles.captureButtonInnerScan,
                 takingPicture && styles.captureButtonPressed,
                 ]}
                 >
                 <MaterialIcons 
-                name="catching-pokemon" 
+                name={mode === "photo" ? "catching-pokemon" : "qr-code-2"}
                 size={takingPicture ? 56 : 64}
                  color="#000000" 
                  />
@@ -239,7 +280,12 @@ const styles = StyleSheet.create({
     gap: 28,
   },
   activeMode: {
-    color: "#e9e8e5",
+    color: "#f1b706",
+    fontSize: 13,
+    fontWeight: "semibold",
+  },
+  inactiveMode: {
+    color: "#a3a3a3",
     fontSize: 13,
     fontWeight: "semibold",
   },
@@ -255,6 +301,13 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
+    backgroundColor: "#fcfcfc",
+  },
+
+  captureButtonInnerScan: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
     backgroundColor: "#fcfcfc",
   },
 
@@ -277,5 +330,58 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+
+
+scannerArea: {
+    alignItems: "center",
+  },
+  scannerFrame: {
+    width: 240,
+    height: 240,
+    position: "relative",
+  },
+  scannerCorner: {
+    position: "absolute",
+    width: 45,
+    height: 45,
+    borderColor: "white",
+  },
+  scannerTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 12,
+  },
+  scannerTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 12,
+  },
+  scannerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 12,
+  },
+  scannerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 12,
+  },
+  scannerText: {
+    marginTop: 18,
+    paddingHorizontal: 16,
+    paddingBottom: 9,
+    borderRadius: 18,
+    color: "white",
+    fontSize: 14,
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
 });

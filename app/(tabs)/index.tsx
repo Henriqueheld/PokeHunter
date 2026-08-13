@@ -1,5 +1,7 @@
+import { CapturedPokemon, getCapturedPokemon } from "@/services/storage";
 import * as Location from "expo-location";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 
@@ -11,54 +13,39 @@ interface Coordinates {
 export default function MapScreen() {
   const [location, setLocation] = useState<Coordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [capturedPokemon, setCapturedPokemon] = useState<CapturedPokemon[]>([]);
 
-  useEffect(() => {
-    let subscription: Location.LocationSubscription | null = null;
+  async function getLocation() {
+    const permission = await Location.requestForegroundPermissionsAsync();
 
-    async function getLocation() {
-      const permission = await Location.requestForegroundPermissionsAsync();
-
-      if (permission.status !== "granted") {
-        setError("Permisão de localização negada");
-        return;
-      }
-
-      const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      setLocation({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      });
-
-      subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 1000,
-          distanceInterval: 5,
-        },
-        (updatedLocation) => {
-          setLocation({
-            latitude: updatedLocation.coords.latitude,
-            longitude: updatedLocation.coords.longitude,
-          });
-        },
-      );
+    if (permission.status !== "granted") {
+      setError("Permissão de localização negada.");
+      return;
     }
 
-    getLocation();
+    const currentLocation = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
 
-    return () => {
-      if (subscription) {
-        subscription.remove();
-      }
-    };
+    setLocation({
+      latitude: currentLocation.coords.latitude,
+      longitude: currentLocation.coords.longitude,
+    });
+  }
+
+  useEffect(() => {
+    getLocation();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      getCapturedPokemon().then((response) => setCapturedPokemon(response));
+    }, []),
+  );
 
   if (error) {
     return (
-      <View>
+      <View style={styles.container}>
         <Text style={styles.error}>{error}</Text>
       </View>
     );
@@ -67,8 +54,8 @@ export default function MapScreen() {
   if (!location) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#red" />
-        <Text style={styles.loadingText}>Buscando localização...</Text>
+        <ActivityIndicator size="large" color="red" />
+        <Text style={styles.loadingText}>Buscando sua localização...</Text>
       </View>
     );
   }
@@ -82,15 +69,22 @@ export default function MapScreen() {
         latitudeDelta: 0.005,
         longitudeDelta: 0.005,
       }}
+      showsUserLocation
       showsMyLocationButton
-      showsCompass
-      showsUserLocation={false}
     >
-      <Marker
-        coordinate={location}
-        anchor={{ x: 0.5, y: 1 }}
-        image={require("../../assets/images/icons8-pokemon-pointer-100.png")}
-      />
+      {capturedPokemon.map((pokemon) => (
+        <Marker
+          key={pokemon.id}
+          coordinate={{
+            latitude: pokemon.latitude,
+            longitude: pokemon.longitude,
+          }}
+          title={`Pokémon #${String(pokemon.id).padStart(4, "0")}`}
+          description="Toque para visualizar"
+          pinColor="red"
+          onPress={() => router.push(`/pokemon/${pokemon.id}`)}
+        />
+      ))}
     </MapView>
   );
 }
@@ -102,28 +96,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: "80%",
-  },
-
   error: {
-    color: "red",
     fontSize: 16,
     textAlign: "center",
   },
-
   loadingText: {
-    marginTop: 12,
     fontSize: 16,
-    color: "red",
+    marginTop: 12,
   },
-
   map: {
     height: "100%",
   },

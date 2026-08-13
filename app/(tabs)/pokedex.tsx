@@ -1,9 +1,12 @@
 import CameraButton from '@/components/CameraButton';
 import PokemonItem from '@/components/PokemonItem';
 import { getPokemonList, Pokemon } from '@/services/pokeapi';
+import { clearCapturedPokemon, getCapturedPokemon } from '@/services/storage';
+import { FontAwesome } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { StyleSheet, Text, View, FlatList, ActivityIndicator } from 'react-native';
+import { useCallback, useState } from 'react';
+import { StyleSheet, Text, View, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -12,6 +15,8 @@ export default function PokedexScreen() {
   const [loading, setLoading] = useState(false);
   const [hasNextPage, setHasNextPage] = useState(true);
   const [offset, setOffset] = useState(0);
+  const [capturedId, setCapturedId] = useState<number[]>([]);
+
 
   const LIMIT = 20;
 
@@ -33,7 +38,18 @@ export default function PokedexScreen() {
     .finally(() => setLoading(false));
   }
 
+  function handleClear() {
+    clearCapturedPokemon();
+    setCapturedId([]);
+  }
 
+  useFocusEffect(
+    useCallback (() => {
+      getCapturedPokemon().then((response) => 
+        setCapturedId(response.map((pokemon) => pokemon.id))
+      );
+    }, [])
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -43,6 +59,10 @@ export default function PokedexScreen() {
 
       <View style={styles.header}>
         <Text style={styles.title}>Pokedex</Text>
+
+        <Pressable onPress={handleClear}>
+          <FontAwesome name="trash" size={20} color="red" />
+        </Pressable>
       </View>
 
       <FlatList
@@ -54,7 +74,7 @@ export default function PokedexScreen() {
             id={item.id}
             name={item.name}
             image={item.image}
-            captured={false}
+            captured={capturedId.includes(item.id)}
           />
         )}
         contentContainerStyle={styles.List}
@@ -89,6 +109,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E1E1E',
     borderBottomWidth: 1,
     borderBottomColor: '#941313',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     shadowColor: "black",
     shadowOffset: {
       width: 0,

@@ -49,6 +49,7 @@ function RootLayoutNav() {
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="camera" options={{ headerShown: false }} />
+      <Stack.Screen name="pokemon/[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

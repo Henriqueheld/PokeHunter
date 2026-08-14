@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as MediaLibrary from "expo-media-library";
 import * as Location from "expo-location";
 import { saveCapturedPokemon } from "@/services/storage";
+import { useIsFocused } from "@react-navigation/native";
 
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions()
@@ -17,6 +18,7 @@ export default function CameraScreen() {
   const [takingPicture, setTakingPicture] = useState(false);
   const [mode, setModer] = useState<"photo" | "scan">("scan");
   const scanned = useRef(false);
+  const isFocused = useIsFocused();
 
   function toggleCameraFacing() {
     setFacing((oldState) => oldState === "back" ? "front" : "back");
@@ -122,7 +124,7 @@ export default function CameraScreen() {
         barcodeScannerSettings={{
           barcodeTypes: ["qr"]
         }}
-        onBarcodeScanned={mode === "scan" && !scanned ? handleBarcodeScanned : undefined}
+        onBarcodeScanned={mode === "scan" && !scanned.current && isFocused ? handleBarcodeScanned : undefined}
       />
 
       <SafeAreaView style={styles.overlay} edges={["top"]}>
